@@ -95,7 +95,7 @@ app.post('/registrar_medico', async (req, res) => {
     }
 });
 
-// Endpoint POST para registrar pacientes ---- FALTA COMPLETAR
+// Endpoint POST para registrar pacientes
 app.post('/registrar_paciente', async (req, res) => {
     const { 
         nombre_completo,
