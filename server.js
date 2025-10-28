@@ -318,6 +318,84 @@ app.put('/activar-medico/:idMedico', async (req, res) => {
   }
 });
 
+
+
+
+app.get('/pacientes_activos',async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('obtener_pacientes_activos')
+
+    if (error) {
+      console.error('Error ejecutando función:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    return res.status(200).json(data) // ✅ devuelve arreglo JSON
+  } catch (err) {
+    console.error('Error interno:', err)
+    return res.status(500).json({ error: 'Error del servidor' })
+  }
+});
+
+
+app.get('/pacientes_solicitantes',async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('obtener_pacientes_solicitantes')
+
+    if (error) {
+      console.error('Error ejecutando función:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    return res.status(200).json(data) // ✅ devuelve arreglo JSON
+  } catch (err) {
+    console.error('Error interno:', err)
+    return res.status(500).json({ error: 'Error del servidor' })
+  }
+});
+
+
+app.put('/activar-paciente/:idPaciente', async (req, res) => {
+  const idPaciente = req.params.idPaciente;
+
+  try {
+    // 1. Obtener id_usuario desde medico
+    const { data: pacienteData, error: pacienteError } = await supabase
+      .from('paciente')
+      .select('id_usuario')
+      .eq('id_paciente', idPaciente)
+      .single();
+
+    if (pacienteError) {
+      return res.status(400).json({ error: medicoError.message });
+    }
+
+    if (!pacienteData) {
+      return res.status(404).json({ error: 'Medico no encontrado' });
+    }
+
+    const idUsuario = pacienteData.id_usuario;
+
+    // 2. Actualizar estado del usuario
+    const { data: updateData, error: updateError } = await supabase
+      .from('usuario')
+      .update({ estado: true })
+      .eq('id_usuario', idUsuario);
+
+    if (updateError) {
+      return res.status(400).json({ error: updateError.message });
+    }
+
+    res.json({ mensaje: 'Usuario activado correctamente', usuario: updateData });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor', detalles: err.message });
+  }
+});
+
+
+
+
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
