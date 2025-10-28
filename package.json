@@ -20,6 +20,7 @@
   "homepage": "https://github.com/AdrianOrdonez2705/GlucoTrack-Backend#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.76.1",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0"
   }
