@@ -2,12 +2,16 @@ const express = require('express');
 const supabase = require('./database');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
-
+const cors=require('cors')
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
+app.use(cors({
+  origin: 'http://localhost:4200',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 // ENDPOINTS 
 
 // Endpoint POST para registrar médicos
@@ -35,8 +39,7 @@ app.post('/registrar_medico', async (req, res) => {
         const { data: especialidadData, error: especialidadError } = await supabase
             .from("especialidad")
             .select("id_especialidad")
-            .eq("nombre", especialidad)
-            .single();
+            .eq("nombre", especialidad).single();
         
         if (especialidadError) throw especialidadError;
         if (!especialidadData) {
@@ -241,6 +244,78 @@ app.get('/get_medico_por_nombre', async (req, res) => {
         .from("medico")
         .select("id_medico")
         .eq("nombre_completo", nombre_completo)
+});
+
+
+
+
+
+app.get('/medicos_activos', async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('get_medicos_activos')
+
+    if (error) {
+      console.error('Error ejecutando función:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    return res.status(200).json(data) // ✅ devuelve arreglo JSON
+  } catch (err) {
+    console.error('Error interno:', err)
+    return res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+app.get('/medicos_solicitantes', async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('get_medicos_solicitantes')
+
+    if (error) {
+      console.error('Error ejecutando función:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    return res.status(200).json(data) // ✅ devuelve arreglo JSON
+  } catch (err) {
+    console.error('Error interno:', err)
+    return res.status(500).json({ error: 'Error del servidor' })
+  }
+});
+app.put('/activar-medico/:idMedico', async (req, res) => {
+  const idMedico = req.params.idMedico;
+
+  try {
+    // 1. Obtener id_usuario desde medico
+    const { data: medicoData, error: medicoError } = await supabase
+      .from('medico')
+      .select('id_usuario')
+      .eq('id_medico', idMedico)
+      .single();
+
+    if (medicoError) {
+      return res.status(400).json({ error: medicoError.message });
+    }
+
+    if (!medicoData) {
+      return res.status(404).json({ error: 'Medico no encontrado' });
+    }
+
+    const idUsuario = medicoData.id_usuario;
+
+    // 2. Actualizar estado del usuario
+    const { data: updateData, error: updateError } = await supabase
+      .from('usuario')
+      .update({ estado: true })
+      .eq('id_usuario', idUsuario);
+
+    if (updateError) {
+      return res.status(400).json({ error: updateError.message });
+    }
+
+    res.json({ mensaje: 'Usuario activado correctamente', usuario: updateData });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor', detalles: err.message });
+  }
 });
 
 app.listen(PORT, () => {
