@@ -220,7 +220,8 @@ app.get('/ver_medicos', async (req, res) => {
         const { data, error } = await supabase
             .from("medico")
             .select(`
-                usuario ( id_usuario, nombre_completo )
+                id_medico,
+                usuario ( nombre_completo )
             `);
         
             if (error) throw error;
