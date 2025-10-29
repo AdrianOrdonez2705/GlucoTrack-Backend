@@ -454,6 +454,7 @@ app.get("/ver_pacientes/:idMedico", async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor." });
   }
 });
+
 // ENDPOINT para obtener las alertas activas en base al ID_MEDICO
 app.get('/alertas_activas_medico/:idMedico', async (req, res) => {
   try {
@@ -473,6 +474,71 @@ app.get('/alertas_activas_medico/:idMedico', async (req, res) => {
     console.error('Error interno:', err);
     return res.status(500).json({ error: 'Error del servidor' });
   }
+});
+
+// Endpoint POST para login
+app.post('/login', async (req, res) => {
+    const { correo, contrasena } = req.body;
+
+    const { data: usuarioData, error: usuarioError } = await supabase
+        .from("usuario")
+        .select("id_usuario, correo, contrasena, rol")
+        .eq("correo", correo);
+
+    if (usuarioError) throw usuarioError;
+
+    if (!usuarioData) {
+        return res.status(401).json({ error: `No se encontró ningún usuario con correo: ${correo}` });
+    }
+
+    const usuario = usuarioData[0];
+    const id_usuario = usuario.id_usuario;
+    const rol = usuario.rol;
+    let id_rol = 0;
+
+    if (rol === "administrador") {
+        const { data: adminData, error: adminError } = await supabase
+            .from("administrador")
+            .select("id_admin")
+            .eq("id_usuario", id_usuario)
+            .single();
+        if (adminError) throw adminError;
+
+        id_rol = adminData.id_admin;
+
+    } else if (rol === "medico") {
+        const { data: medicoData, error: medicoError } = await supabase
+            .from("medico")
+            .select("id_medico")
+            .eq("id_usuario", id_usuario)
+            .single();
+        if(medicoError) throw medicoError;
+
+        id_rol = medicoData.id_medico;
+
+    } else {
+        const { data: pacienteData, error: pacienteError } = await supabase
+            .from("paciente")
+            .select("id_paciente")
+            .eq("id_usuario", id_usuario)
+            .single();
+        if (pacienteError) throw pacienteError;
+
+        id_rol = pacienteData.id_paciente;
+    }
+
+    const isMatch = await bcrypt.compare(String(contrasena), usuario.contrasena);
+
+    if (!isMatch) {
+        return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    res.status(200).json({
+        message: "Credenciales correctas, login exitoso",
+        id_usuario: id_usuario,
+        id_rol: id_rol,
+        rol: rol
+    });
 });
 
 app.listen(PORT, () => {
