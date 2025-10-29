@@ -541,6 +541,52 @@ app.post('/login', async (req, res) => {
     });
 });
 
+// Endpoint POST para registrar glucosa
+app.post('/registrar_glucosa', async (req, res) => {
+    const {
+      fecha,
+      hora, 
+      id_medico,
+      id_momento,
+      id_paciente,
+      nivel_glucosa,
+      observaciones
+    } = req.body;
+
+    if (!fecha || !hora || !id_medico || !id_momento || !id_paciente || !nivel_glucosa) {
+      return res.status(400).json({ error: "Todos los campos (menos observaciones) deben estar llenados" });
+    }
+
+    try {
+      const { data: glucosaData, error: glucosaError } = await supabase
+        .from("registro_glucosa")
+        .insert([
+          {
+            id_paciente: id_paciente,
+            id_medico: id_medico,
+            id_momento: id_momento,
+            fecha: fecha,
+            hora: hora,
+            nivel_glucosa: nivel_glucosa,
+            observaciones: observaciones
+          }
+        ]).select();
+
+      if (glucosaError) throw glucosaError;
+
+      const registro_glucosa = glucosaData[0];
+
+      res.status(200).json({
+        message: "Registro insertado correctamente",
+        registro_glucosa
+      });
+
+    } catch (error) {
+      console.error("Error al insertar los datos: ", error.message);
+      res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
