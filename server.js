@@ -2,17 +2,17 @@ const express = require('express');
 const supabase = require('./database');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
-const cors=require('cors')
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
 app.use(cors({
   origin: 'http://localhost:4200',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// ENDPOINTS 
 
 // Endpoint POST para registrar médicos
 app.post('/registrar_medico', async (req, res) => {
@@ -214,7 +214,6 @@ app.post('/registrar_paciente', async (req, res) => {
     }
 });
 
-
 // Endpoint GET para obtener todos los médicos
 app.get('/ver_medicos', async (req, res) => {
     try {
@@ -232,22 +231,6 @@ app.get('/ver_medicos', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener médicos' });
     }
 });
-
-
-// ENDPOINT DE PRUEBA
-app.get('/get_medico_por_nombre', async (req, res) => {
-    const {
-        nombre_completo
-    } = req.body;
-
-    const { data, error } = await supabase
-        .from("medico")
-        .select("id_medico")
-        .eq("nombre_completo", nombre_completo)
-});
-
-
-
 
 // ENDPOINT para obtener todos los medicos activos (admitidos)
 app.get('/medicos_activos', async (req, res) => {
@@ -320,8 +303,6 @@ app.put('/activar-medico/:idMedico', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor', detalles: err.message });
   }
 });
-
-
 
 //ENDPOINT para obtener todos los pacientes activos (admitidos)
 app.get('/pacientes_activos',async (req, res) => {
@@ -423,7 +404,6 @@ app.get('/perfil_medico/:idUsuario', async (req, res) => {
   }
 })
 
-
 // ENDPOINT para obtener el perfil de un administrador en base al ID_USUARIO
 app.get('/perfil_admin/:idUsuario', async (req, res) => {
   try {
@@ -493,9 +473,6 @@ app.get('/alertas_activas_medico/:idMedico', async (req, res) => {
     return res.status(500).json({ error: 'Error del servidor' });
   }
 });
-
-
-
 
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
