@@ -587,6 +587,65 @@ app.post('/registrar_glucosa', async (req, res) => {
     }
 });
 
+app.get('/ver_momentos', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("momento_dia")
+            .select(`
+                id_momento, momento 
+            `);
+        
+            if (error) throw error;
+
+            res.status(200).json(data);
+    } catch (error) {
+        console.error('Error al obtener momentos: ', error.message);
+        res.status(500).json({ error: 'Error al obtener momentos' });
+    }
+});
+
+
+app.get('/registros_paciente/:idPaciente', async (req, res) => {
+  try {
+    const idPaciente = parseInt(req.params.idPaciente);
+
+    const { data, error } = await supabase.rpc('obtener_registros_por_paciente', {
+      id_paciente_input: idPaciente
+    });
+
+    if (error) {
+      console.error('Error ejecutando función:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('Error interno:', err);
+    return res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
+app.get('/alertas_resueltas_medico/:idMedico', async (req, res) => {
+  try {
+    const idMedico = parseInt(req.params.idMedico);
+
+    const { data, error } = await supabase.rpc('obtener_alertas_resueltas_por_medico', {
+      id_medico_input: idMedico
+    });
+
+    if (error) {
+      console.error('Error ejecutando función:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('Error interno:', err);
+    return res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
