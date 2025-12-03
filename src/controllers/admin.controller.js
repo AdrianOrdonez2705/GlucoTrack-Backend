@@ -1,5 +1,5 @@
 const supabase = require('../../database'); // tu cliente Supabase
-
+const bcrypt=require('bcrypt')
 const medicosActivos = async (req, res) => {
   try {
     const { data, error } = await supabase.rpc('get_medicos_activos');
@@ -160,4 +160,87 @@ const perfilAdmin= async (req, res) => {
   }
 };
 
-module.exports={medicosActivos,medicosSolicitantes,activarMedico,pacientesActivos,pacientesSolicitantes,activarPaciente,perfilAdmin};
+
+
+const agregarAdmin=async(req,res)=>{
+ 
+    const {
+      nombre,
+      correo,
+      contrasena,
+      fechaNacimiento,
+      telefono,
+      cargo,
+      fecha_registro
+    }=req.body;
+    if(!nombre|| !correo ||!contrasena || !fechaNacimiento|| !cargo||!fecha_registro ||!telefono){
+      return res.status(400).json({ error: 'Todos los campos deben ser llenados' });
+    }
+    try{
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+      const {data, error}=await supabase.
+      from('usuario')
+      .insert([
+                {
+                    nombre_completo:nombre,
+                    correo:correo,
+                    contrasena: hashedPassword,
+                    rol:'administrador',
+                    fecha_nac:fechaNacimiento,
+                    teléfono:telefono,
+                    estado:true
+                },
+            ]).select();
+            if( error) throw error;
+             const usuario_insertado = data[0];
+
+             const { data: adminData, error: adminError } = await supabase
+            .from("administrador")
+            .insert([
+                {
+                    id_usuario: usuario_insertado.id_usuario,
+                    cargo:cargo,
+                    fecha_ingreso:fecha_registro,
+                    administrador_id_admin:1
+                }
+            ]).select();
+            if(adminError) throw adminError;
+           
+            res.status(200).json({
+            message: 'Usuario y admin registrados correctamente',
+            usuario_insertado,
+            adminData
+            }); 
+    }catch(error){
+      console.error("Error al insertar los datos: ", error.message);
+      res.status(500).json({ error: error.message });
+    }
+}
+
+
+const obtenerAdmins=async(req,res)=>{
+  try{
+  const id_admin=parseInt(req.params.idAdmin);
+  const { data, error } = await supabase.rpc('obtener_admins_visible', {
+      id_admin_input: id_admin
+    });
+
+    if (error) {
+      console.error('Error ejecutando función:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron administradores' });
+    }
+
+    return res.status(200).json(data); // devuelve el objeto directamente
+  } catch (err) {
+    console.error('Error interno:', err);
+    return res.status(500).json({ error: 'Error del servidor' });
+  
+  }
+}
+
+module.exports={medicosActivos,medicosSolicitantes,activarMedico,pacientesActivos,pacientesSolicitantes,activarPaciente,perfilAdmin,agregarAdmin,obtenerAdmins};

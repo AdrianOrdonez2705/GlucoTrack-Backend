@@ -3,13 +3,16 @@ const bcrypt=require('bcrypt')
 
 
 const registrarPaciente= async (req, res) => {
+  console.log("FILES LLEGAN:", req.files);
+console.log("BODY LLEGA:", req.body);
+
     const { 
         nombre_completo,
         correo,
         contrasena,
         rol,
         fecha_nac,
-        teléfono,
+        
         id_medico,
         id_actividad,
         genero,
@@ -17,11 +20,26 @@ const registrarPaciente= async (req, res) => {
         altura,
         enfermedad_id,
         tratamiento_id,
-        dosis_
+        dosis_,
+        nombre_emergencia,
+        numero_emergencia,
+        embarazada
     } = req.body;
+    const teléfono = req.body["teléfono"] || req.body["telÃ©fono"];
+    const imgFiles = req.files?.foto_perfil;
+    if (!imgFiles || imgFiles.length === 0) {
+      return res.status(400).json({ error: "Archivo de carnet faltante" });
+    }
+       const img = imgFiles[0];
+      const imgUpload = await supabase.storage
+      .from("perfiles_pacientes")
+      .upload(`imgs/${Date.now()}_${img.originalname}`, img.buffer, { contentType: img.mimetype });
+
+    if (imgUpload.error) throw imgUpload.error;
+    const imgUrl = supabase.storage.from("perfiles_pacientes").getPublicUrl(imgUpload.data.path).data.publicUrl;
 
     if (!nombre_completo || !correo || !contrasena || !rol || !fecha_nac || !teléfono || !id_medico || !id_actividad || !genero || !peso || !altura
-       ||!enfermedad_id||!tratamiento_id||!dosis_)  {
+       ||!enfermedad_id||!tratamiento_id||!dosis_||!nombre_emergencia||!numero_emergencia||embarazada==null||!imgUrl)  {
         return res.status(400).json({ error: 'Todos los campos deben ser llenados' });
     }
 
@@ -29,7 +47,7 @@ const registrarPaciente= async (req, res) => {
         
         // Primero buscar la equivalencia de nivel de actividad
     
-
+        
         // Luego hasheo
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
@@ -60,7 +78,12 @@ const registrarPaciente= async (req, res) => {
                     id_nivel_actividad: id_actividad,
                     genero,
                     peso,
-                    altura
+                    altura,
+                    embarazo:embarazada,
+                    nombre_emergencia,
+                    numero_emergencia,
+                    foto_perfil:imgUrl
+
                 }
             ]).select();
 
@@ -104,7 +127,7 @@ const perfilPaciente=async (req, res) => {
 
   try {
     const { data, error } = await supabase
-      .rpc('obtener_paciente_por_id', { id_usuario_input: idPaciente });
+      .rpc('obtener_paciente_por_id', { id_paciente_input: idPaciente });
 
     if (error) throw error;
 

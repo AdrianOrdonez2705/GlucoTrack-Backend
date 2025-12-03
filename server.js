@@ -476,15 +476,18 @@ app.post('/api/login', async (req, res) => {
     const { data: usuarioData, error: usuarioError } = await supabase
         .from("usuario")
         .select("id_usuario, correo, contrasena, rol")
-        .eq("correo", correo).eq("estado", true); 
+        .eq("correo", correo)
+        .eq("estado", true);
 
     if (usuarioError) throw usuarioError;
 
-    if (!usuarioData) {
+    // VALIDACIÓN CORRECTA
+    if (!usuarioData || usuarioData.length === 0) {
         return res.status(401).json({ error: `No se encontró ningún usuario con correo: ${correo}` });
     }
 
     const usuario = usuarioData[0];
+
     const id_usuario = usuario.id_usuario;
     const rol = usuario.rol;
     let id_rol = 0;
@@ -495,8 +498,8 @@ app.post('/api/login', async (req, res) => {
             .select("id_admin")
             .eq("id_usuario", id_usuario)
             .single();
-        if (adminError) throw adminError;
 
+        if (adminError) throw adminError;
         id_rol = adminData.id_admin;
 
     } else if (rol === "medico") {
@@ -505,8 +508,8 @@ app.post('/api/login', async (req, res) => {
             .select("id_medico")
             .eq("id_usuario", id_usuario)
             .single();
-        if(medicoError) throw medicoError;
 
+        if (medicoError) throw medicoError;
         id_rol = medicoData.id_medico;
 
     } else {
@@ -515,8 +518,8 @@ app.post('/api/login', async (req, res) => {
             .select("id_paciente")
             .eq("id_usuario", id_usuario)
             .single();
-        if (pacienteError) throw pacienteError;
 
+        if (pacienteError) throw pacienteError;
         id_rol = pacienteData.id_paciente;
     }
 
@@ -802,6 +805,11 @@ app.use('/api/registro', registroRoutes);
 
 const generalRoutes=require('./src/routes/general.routes');
 app.use('/api/general',generalRoutes);
+
+const pdfRoute=require('./src/routes/patientPDF.routes')
+app.use("/api", pdfRoute);
+
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
