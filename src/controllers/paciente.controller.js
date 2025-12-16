@@ -164,14 +164,14 @@ const registrarGlucosa = async (req, res) => {
   const {
     fecha,
     hora,
-    id_medico,
+  
     id_momento,
     id_paciente,
     nivel_glucosa,
     observaciones
   } = req.body;
 
-  if (!fecha || !hora || !id_medico || !id_momento || !id_paciente || !nivel_glucosa) {
+  if (!fecha || !hora  || !id_momento || !id_paciente || !nivel_glucosa) {
     return res.status(400).json({ error: "Todos los campos (menos observaciones) deben estar llenados" });
   }
 
@@ -181,7 +181,7 @@ const registrarGlucosa = async (req, res) => {
       .insert([
         {
           id_paciente,
-          id_medico,
+         
           id_momento,
           fecha,
           hora,

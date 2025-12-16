@@ -242,8 +242,54 @@ const retroalimentacionAlerta = async (req, res) => {
 };
 
 
+const registrarGlucosaMedico = async (req, res) => {
+  const {
+    fecha,
+    hora,
+    id_medico,
+    id_momento,
+    id_paciente,
+    nivel_glucosa,
+    observaciones
+  } = req.body;
 
+  if (!fecha || !hora || !id_medico || !id_momento || !id_paciente || !nivel_glucosa) {
+    return res.status(400).json({ error: "Todos los campos (menos observaciones) deben estar llenados" });
+  }
+
+  try {
+    const { data: glucosaData, error: glucosaError } = await supabase
+      .from("registro_glucosa")
+      .insert([
+        {
+          id_paciente,
+          id_medico,
+          id_momento,
+          fecha,
+          hora,
+          nivel_glucosa,
+          observaciones
+        }
+      ])
+      .select(); // devuelve el registro insertado
+
+    if (glucosaError) throw glucosaError;
+
+    const registro_glucosa = glucosaData[0]; // el primer registro insertado
+
+    // Retornar el ID generado
+    res.status(200).json({
+      message: "Registro insertado correctamente",
+      id_registro: registro_glucosa.id, // ⚠️ asumimos que la columna PK es "id"
+      registro_glucosa
+    });
+
+  } catch (error) {
+    console.error("Error al insertar los datos: ", error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // ✅ export correcto
 module.exports = { verMedicos, 
-    perfilMedico, registrarMedico, verPacientes, alertasActivas,alertasResueltas,retroalimentacionAlerta};
+    perfilMedico, registrarMedico, verPacientes, alertasActivas,alertasResueltas,retroalimentacionAlerta,registrarGlucosaMedico};

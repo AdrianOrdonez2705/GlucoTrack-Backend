@@ -36,4 +36,18 @@ const getHiperTemplate = ({ nombrePaciente, valor, fecha, hora }) => ({
   `
 });
 
-module.exports = { getHipoTemplate, getHiperTemplate };
+
+const getOtpTemplate = ({ nombreUsuario, codigo }) => ({
+  subject: `Código de verificación para GlucoTracker`,
+  html: `
+    <p>Hola ${nombreUsuario},</p>
+    <p>Tu código de verificación para completar el inicio de sesión es:</p>
+    <h2>${codigo}</h2>
+    <p>Este código expirará en 5 minutos.</p>
+    <p>Si no solicitaste este código, ignora este correo.</p>
+    <p>Atentamente,<br>GlucoTracker</p>
+  `
+});
+
+module.exports = { getHipoTemplate, getHiperTemplate, getOtpTemplate };
+

@@ -5,10 +5,11 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }  });
 
 const {perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente}=require('../controllers/paciente.controller');
-router.get('/perfil/:idPaciente',perfilPaciente);
-router.get('/registros/:idPaciente',registrosPaciente);
+const auditoriaPaciente=require("../middlewares/auditoria.paciente")
+router.get('/perfil/:idPaciente',auditoriaPaciente,perfilPaciente);
+router.get('/registros/:idPaciente',auditoriaPaciente,registrosPaciente);
 
-router.post('/registrarGlucosa',registrarGlucosa);
+router.post('/registrarGlucosa',auditoriaPaciente,registrarGlucosa);
 router.post('/registrarPaciente', upload.fields([
   { name: "foto_perfil", maxCount: 1 }
 ]),registrarPaciente);

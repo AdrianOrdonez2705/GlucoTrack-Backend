@@ -6,7 +6,7 @@ const datosParaGlucosa = async (req, res) => {
 
   try {
     const { data, error } = await supabase
-      .rpc('obtener_info_paciente_json', { id_usuario_input: idUsuario });
+      .rpc('obtener_info_paciente_json', { id_paciente_input: idUsuario });
 
     if (error) throw error;
 

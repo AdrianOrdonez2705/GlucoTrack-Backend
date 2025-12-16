@@ -1,5 +1,6 @@
 const supabase = require('../../database'); // tu cliente Supabase
 const bcrypt=require('bcrypt')
+
 const medicosActivos = async (req, res) => {
   try {
     const { data, error } = await supabase.rpc('get_medicos_activos');
@@ -22,43 +23,58 @@ const medicosSolicitantes = async (req, res) => {
   } catch (err) {
     console.error('Error interno:', err);
     return res.status(500).json({ error: 'Error del servidor' });
-  }
+  } 
 };
 
 const activarMedico = async (req, res) => {
   const idMedico = req.params.idMedico;
+  const { idAdmin } = req.body;
 
+  if (!idAdmin) {
+    return res.status(400).json({ error: 'No hay administrador' });
+  }
+  console.log('BODY:', req.body);
+console.log('PARAMS:', req.params);
   try {
-    // 1️⃣ Obtener id_usuario desde medico
     const { data: medicoData, error: medicoError } = await supabase
       .from('medico')
       .select('id_usuario')
       .eq('id_medico', idMedico)
       .single();
 
-    if (medicoError) {
-      return res.status(400).json({ error: medicoError.message });
-    }
-
-    if (!medicoData) {
+    if (medicoError || !medicoData) {
       return res.status(404).json({ error: 'Médico no encontrado' });
     }
 
     const idUsuario = medicoData.id_usuario;
 
-    // 2️⃣ Actualizar estado del usuario
-    const { data: updateData, error: updateError } = await supabase
+    const { error: updateErrorMedico } = await supabase
+      .from('medico')
+      .update({
+        administrador_id_admin: idAdmin
+      })
+      .eq('id_medico', idMedico);
+
+    if (updateErrorMedico) {
+      return res.status(400).json({ error: updateErrorMedico.message });
+    }
+
+    const { error: updateErrorUsuario } = await supabase
       .from('usuario')
       .update({ estado: true })
       .eq('id_usuario', idUsuario);
 
-    if (updateError) {
-      return res.status(400).json({ error: updateError.message });
+    if (updateErrorUsuario) {
+      return res.status(400).json({ error: updateErrorUsuario.message });
     }
 
-    res.json({ mensaje: 'Usuario activado correctamente', usuario: updateData });
+    res.json({ mensaje: 'Usuario activado correctamente' });
+
   } catch (err) {
-    res.status(500).json({ error: 'Error del servidor', detalles: err.message });
+    res.status(500).json({
+      error: 'Error del servidor',
+      detalles: err.message
+    });
   }
 };
 
@@ -100,7 +116,10 @@ const pacientesSolicitantes=async (req, res) => {
 
 const activarPaciente= async (req, res) => {
   const idPaciente = req.params.idPaciente;
-
+    const { idAdmin } = req.body;
+    if (!idAdmin) {
+    return res.status(400).json({ error: 'No hay administrador' });
+  }
   try {
     // 1. Obtener id_usuario desde medico
     const { data: pacienteData, error: pacienteError } = await supabase
@@ -118,7 +137,16 @@ const activarPaciente= async (req, res) => {
     }
 
     const idUsuario = pacienteData.id_usuario;
+    const { error: updateErrorPaciente } = await supabase
+      .from('paciente')
+      .update({
+        administrador_id_admin: idAdmin
+      })
+      .eq('id_paciente', idPaciente);
 
+    if (updateErrorPaciente) {
+      return res.status(400).json({ error: updateErrorPaciente.message });
+    }
     // 2. Actualizar estado del usuario
     const { data: updateData, error: updateError } = await supabase
       .from('usuario')
@@ -171,9 +199,10 @@ const agregarAdmin=async(req,res)=>{
       fechaNacimiento,
       telefono,
       cargo,
-      fecha_registro
+      fecha_registro,
+      administrador_id_admin
     }=req.body;
-    if(!nombre|| !correo ||!contrasena || !fechaNacimiento|| !cargo||!fecha_registro ||!telefono){
+    if(!nombre|| !correo ||!contrasena || !fechaNacimiento|| !cargo||!fecha_registro ||!telefono||!administrador_id_admin){
       return res.status(400).json({ error: 'Todos los campos deben ser llenados' });
     }
     try{
@@ -189,7 +218,8 @@ const agregarAdmin=async(req,res)=>{
                     rol:'administrador',
                     fecha_nac:fechaNacimiento,
                     teléfono:telefono,
-                    estado:true
+                    estado:true,
+                    
                 },
             ]).select();
             if( error) throw error;
@@ -202,7 +232,7 @@ const agregarAdmin=async(req,res)=>{
                     id_usuario: usuario_insertado.id_usuario,
                     cargo:cargo,
                     fecha_ingreso:fecha_registro,
-                    administrador_id_admin:1
+                    administrador_id_admin:administrador_id_admin
                 }
             ]).select();
             if(adminError) throw adminError;
@@ -242,5 +272,10 @@ const obtenerAdmins=async(req,res)=>{
   
   }
 }
+
+
+
+
+
 
 module.exports={medicosActivos,medicosSolicitantes,activarMedico,pacientesActivos,pacientesSolicitantes,activarPaciente,perfilAdmin,agregarAdmin,obtenerAdmins};
