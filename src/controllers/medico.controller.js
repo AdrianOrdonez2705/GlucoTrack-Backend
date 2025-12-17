@@ -1,5 +1,5 @@
 const supabase = require('../../database'); // tu cliente Supabase
-const bcrypt=require('bcrypt');
+const bcrypt = require('bcrypt');
 
 const registrarMedico = async (req, res) => {
   try {
@@ -102,7 +102,7 @@ const verMedicos = async (req, res) => {
 
 
 
-const perfilMedico= async (req, res) => {
+const perfilMedico = async (req, res) => {
   try {
     const idUsuario = parseInt(req.params.idUsuario)
 
@@ -122,7 +122,7 @@ const perfilMedico= async (req, res) => {
 
     // ✅ Devuelve el resultado como JSON
     return res.status(200).json(data[0]) // devuelve el objeto (no arreglo)
-    
+
   } catch (err) {
     console.error('Error interno:', err)
     return res.status(500).json({ error: 'Error del servidor' })
@@ -130,7 +130,7 @@ const perfilMedico= async (req, res) => {
 };
 
 
-const verPacientes= async (req, res) => {
+const verPacientes = async (req, res) => {
   const { idMedico } = req.params;
 
   try {
@@ -155,7 +155,7 @@ const verPacientes= async (req, res) => {
 };
 
 
-const alertasActivas= async (req, res) => {
+const alertasActivas = async (req, res) => {
   try {
     const idMedico = parseInt(req.params.idMedico);
 
@@ -176,7 +176,7 @@ const alertasActivas= async (req, res) => {
 };
 
 
-const alertasResueltas= async (req, res) => {
+const alertasResueltas = async (req, res) => {
   try {
     const idMedico = parseInt(req.params.idMedico);
 
@@ -290,6 +290,77 @@ const registrarGlucosaMedico = async (req, res) => {
   }
 };
 
+const actualizarMedico = async (req, res) => {
+  const { id_medico } = req.params;
+
+  const {
+    telefono,
+    correo,
+    departamento,
+    carnet_profesional
+  } = req.body;
+
+  try {
+    const { data: medico, error: medicoFetchError } = await supabase
+      .from('medico')
+      .select('id_usuario')
+      .eq('id_medico', id_medico)
+      .single();
+
+    if (medicoFetchError || !medico) {
+      return res.status(404).json({ message: 'Médico no encontrado' });
+    }
+
+    const { id_usuario } = medico;
+
+    const usuarioUpdates = {};
+    if (telefono !== undefined) usuarioUpdates["teléfono"] = telefono;
+    if (correo !== undefined) usuarioUpdates.correo = correo;
+
+    const medicoUpdates = {};
+    if (departamento !== undefined) medicoUpdates.departamento = departamento;
+    if (carnet_profesional !== undefined) medicoUpdates.carnet_profesional = carnet_profesional;
+
+    if (Object.keys(usuarioUpdates).length > 0) {
+      const { error } = await supabase
+        .from('usuario')
+        .update(usuarioUpdates)
+        .eq('id_usuario', id_usuario);
+
+      if (error) throw error;
+    }
+
+    if (Object.keys(medicoUpdates).length > 0) {
+      const { error } = await supabase
+        .from('medico')
+        .update(medicoUpdates)
+        .eq('id_medico', id_medico);
+
+      if (error) throw error;
+    }
+
+    return res.status(200).json({
+      message: 'Datos actualizados correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar:', error);
+    return res.status(500).json({
+      message: 'Error al actualizar los datos',
+      error: error.message
+    });
+  }
+};
+
 // ✅ export correcto
-module.exports = { verMedicos, 
-    perfilMedico, registrarMedico, verPacientes, alertasActivas,alertasResueltas,retroalimentacionAlerta,registrarGlucosaMedico};
+module.exports = {
+  verMedicos,
+  perfilMedico,
+  registrarMedico,
+  verPacientes,
+  alertasActivas,
+  alertasResueltas,
+  retroalimentacionAlerta,
+  registrarGlucosaMedico,
+  actualizarMedico
+};
