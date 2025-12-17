@@ -35,6 +35,6 @@ router.get('/ver', verMedicos);
 router.get('/misPacientes/:idMedico', auditoriaMedico, verPacientes);
 router.get('/alertasActivas/:idMedico', auditoriaMedico, alertasActivas);
 router.get('/alertasResueltas/:idMedico', auditoriaMedico, alertasResueltas);
-router.put('/actualizar/:id_medico', auditoriaMedico, actualizarMedico);
+router.put('/actualizar/:id_medico', auditoriaMedico,   upload.single('carnet'), actualizarMedico);
 
 module.exports = router;

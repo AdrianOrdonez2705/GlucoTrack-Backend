@@ -140,16 +140,21 @@ try{
   const isMatch = await bcrypt.compare(String(contrasena), usuario.contrasena);
   if (!isMatch) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
-  // Generar OTP
+  // Generar OTPF
   const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 dígitos
   setOTP(usuario.id_usuario, otp, 5 * 60 * 1000); // 5 minutos
 
   // Enviar OTP por correo
-  await sendEmail(
-    usuario.correo,
-    'Código de Verificación',
-    `<p>Tu código de verificación es: <strong>${otp}</strong></p>`
-  );
+  const { subject, html } = getOtpTemplate({
+  nombreUsuario: usuario.correo, // o nombre si lo tienes
+  codigo: otp
+});
+
+await sendEmail(
+  usuario.correo,
+  subject,
+  html
+);
   console.log({
       fecha:new Date().toISOString(),
       endpoint: '/api/login',
