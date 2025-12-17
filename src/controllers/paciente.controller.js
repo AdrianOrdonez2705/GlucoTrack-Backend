@@ -1,126 +1,144 @@
 const supabase = require('../../database'); // tu cliente Supabase
 const bcrypt=require('bcrypt')
 
+const registrarPaciente = async (req, res) => {
+  try {
+    console.log("FILES LLEGAN:", req.files);
+    console.log("BODY LLEGA:", req.body);
 
-const registrarPaciente= async (req, res) => {
-  console.log("FILES LLEGAN:", req.files);
-console.log("BODY LLEGA:", req.body);
-
-    const { 
-        nombre_completo,
-        correo,
-        contrasena,
-        rol,
-        fecha_nac,
-        
-        id_medico,
-        id_actividad,
-        genero,
-        peso,
-        altura,
-        enfermedad_id,
-        tratamiento_id,
-        dosis_,
-        nombre_emergencia,
-        numero_emergencia,
-        embarazada
+    const {
+      nombre_completo,
+      correo,
+      contrasena,
+      rol,
+      fecha_nac,
+      id_medico,
+      id_actividad,
+      genero,
+      peso,
+      altura,
+      enfermedad_id,
+      tratamiento_id,
+      dosis_,
+      nombre_emergencia,
+      numero_emergencia,
+      embarazada,
+      semanas
     } = req.body;
+
     const teléfono = req.body["teléfono"] || req.body["telÃ©fono"];
     const imgFiles = req.files?.foto_perfil;
+
     if (!imgFiles || imgFiles.length === 0) {
-      return res.status(400).json({ error: "Archivo de carnet faltante" });
+      return res.status(400).json({ error: "Archivo de perfil faltante" });
     }
-       const img = imgFiles[0];
-      const imgUpload = await supabase.storage
+
+    const img = imgFiles[0];
+    const imgUpload = await supabase.storage
       .from("perfiles_pacientes")
       .upload(`imgs/${Date.now()}_${img.originalname}`, img.buffer, { contentType: img.mimetype });
 
     if (imgUpload.error) throw imgUpload.error;
     const imgUrl = supabase.storage.from("perfiles_pacientes").getPublicUrl(imgUpload.data.path).data.publicUrl;
 
-    if (!nombre_completo || !correo || !contrasena || !rol || !fecha_nac || !teléfono || !id_medico || !id_actividad || !genero || !peso || !altura
-       ||!enfermedad_id||!tratamiento_id||!dosis_||!nombre_emergencia||!numero_emergencia||embarazada==null||!imgUrl)  {
-        return res.status(400).json({ error: 'Todos los campos deben ser llenados' });
+    // Validación de campos obligatorios
+    if (!nombre_completo || !correo || !contrasena || !rol || !fecha_nac || !teléfono || !id_medico
+        || !id_actividad || !genero || !peso || !altura || !enfermedad_id || !tratamiento_id
+        || !dosis_ || !nombre_emergencia || !numero_emergencia || !imgUrl) {
+      return res.status(400).json({ error: 'Todos los campos obligatorios deben ser llenados' });
     }
 
-    try {
-        
-        // Primero buscar la equivalencia de nivel de actividad
-    
-        
-        // Luego hasheo
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+    // Conversión de tipos
+    const id_medicoInt = parseInt(id_medico);
+    const id_actividadInt = parseInt(id_actividad);
+    const enfermedad_idInt = parseInt(enfermedad_id);
+    const tratamiento_idInt = parseInt(tratamiento_id);
+    const pesoNum = parseFloat(peso);
+    const alturaNum = parseFloat(altura);
+    const embarazadaBool = embarazada === 'true' || embarazada === true;
+    const semanasInt = semanas ? parseInt(semanas) : null;
 
-        const { data: usuarioInsertadoData, error: usuarioInsertadoError } = await supabase
-            .from("usuario")
-            .insert([
-                {
-                    nombre_completo,
-                    correo,
-                    contrasena: hashedPassword,
-                    rol,
-                    fecha_nac,
-                    teléfono
-                },
-            ]).select();
+    // Hash de contraseña
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
 
-        if (usuarioInsertadoError) throw usuarioInsertadoError;
+    // Insert usuario
+    const { data: usuarioInsertadoData, error: usuarioInsertadoError } = await supabase
+      .from("usuario")
+      .insert([{
+        nombre_completo,
+        correo,
+        contrasena: hashedPassword,
+        rol,
+        fecha_nac,
+        teléfono
+      }]).select();
 
-        const usuario_insertado = usuarioInsertadoData[0];
+    if (usuarioInsertadoError) throw usuarioInsertadoError;
 
-        const { data: pacienteData, error: pacienteError } = await supabase
-            .from("paciente")
-            .insert([
-                {
-                    id_usuario: usuario_insertado.id_usuario,
-                    id_medico: id_medico,
-                    id_nivel_actividad: id_actividad,
-                    genero,
-                    peso,
-                    altura,
-                    embarazo:embarazada,
-                    nombre_emergencia,
-                    numero_emergencia,
-                    foto_perfil:imgUrl
+    const usuario_insertado = usuarioInsertadoData[0];
 
-                }
-            ]).select();
+    // Insert paciente
+    const { data: pacienteData, error: pacienteError } = await supabase
+      .from("paciente")
+      .insert([{
+        id_usuario: usuario_insertado.id_usuario,
+        id_medico: id_medicoInt,
+        id_nivel_actividad: id_actividadInt,
+        genero,
+        peso: pesoNum,
+        altura: alturaNum,
+        embarazo: embarazadaBool,
+        nombre_emergencia,
+        numero_emergencia,
+        foto_perfil: imgUrl
+      }]).select();
 
-        if (pacienteError) throw pacienteError;
+    if (pacienteError) throw pacienteError;
 
-        const paciente = pacienteData[0];
+    const paciente = pacienteData[0];
 
-       const {data:dataTratamiento,error:errorTratamiento}=await supabase
-       .from('tratamiento_enfermedad').insert({
-            id_paciente:paciente.id_paciente,
-            id_tratamiento:tratamiento_id,
-            dosis:dosis_
-       });
-       if(errorTratamiento)throw errorTratamiento;
-
-       const {data:dataEnfermedad, error: errorEnfermedad}=await supabase
-       .from('paciente_enfermedad').
-       insert({
-          id_paciente:paciente.id_paciente,
-          id_enfermedad:enfermedad_id,
-       })
-
-       if(errorEnfermedad)throw errorEnfermedad;
-
-        res.status(200).json({
-            message: 'Usuario y paciente registrados correctamente',
-            usuario_insertado,
-            paciente
-        });
-        
-    } catch (error) {
-        console.error("Error al insertar datos: ", error);
-        res.status(500).json({ error: error.message });
+    // Seguimiento embarazo solo si aplica
+    if (embarazadaBool && semanasInt !== null) {
+      await supabase.from('seguimiento_embarazo').insert({
+        id_paciente: paciente.id_paciente,
+        fecha_registro: usuario_insertado.fecha_registro,
+        semanas_embarazo: semanasInt
+      });
     }
+
+    // Insert tratamiento
+    const { data: dataTratamiento, error: errorTratamiento } = await supabase
+      .from('tratamiento_enfermedad')
+      .insert({
+        id_paciente: paciente.id_paciente,
+        id_tratamiento: tratamiento_idInt,
+        dosis: dosis_
+      });
+
+    if (errorTratamiento) throw errorTratamiento;
+
+    // Insert enfermedad
+    const { data: dataEnfermedad, error: errorEnfermedad } = await supabase
+      .from('paciente_enfermedad')
+      .insert({
+        id_paciente: paciente.id_paciente,
+        id_enfermedad: enfermedad_idInt
+      });
+
+    if (errorEnfermedad) throw errorEnfermedad;
+
+    res.status(200).json({
+      message: 'Usuario y paciente registrados correctamente',
+      usuario_insertado,
+      paciente
+    });
+
+  } catch (error) {
+    console.error("Error al insertar datos: ", error);
+    res.status(500).json({ error: error.message });
+  }
 };
-
-
 
 const perfilPaciente=async (req, res) => {
   const idPaciente = parseInt(req.params.idPaciente);
@@ -210,4 +228,115 @@ const registrarGlucosa = async (req, res) => {
 
 
 
-module.exports={perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente};
+
+
+const actualizarPaciente = async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  const {
+    nombre,
+    altura,
+    peso,
+    telefono,
+    correo,
+    embarazo,
+    fecha_terminacion,
+    semanas_embarazo,
+    nombre_emergencia,
+    numero_emergencia
+  } = req.body;
+
+  if (!nombre || altura == null || !peso || !telefono || !correo || !nombre_emergencia || !numero_emergencia) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    // Obtener id_paciente desde id_usuario
+    const { data: pacienteData, error: pacienteError } = await supabase
+      .from('paciente')
+      .select('id_paciente')
+      .eq('id_usuario', id_usuario)
+      .single();
+
+    if (pacienteError) throw pacienteError;
+    if (!pacienteData) return res.status(404).json({ error: 'Paciente no encontrado' });
+
+    const id_paciente = pacienteData.id_paciente;
+
+    // Actualizamos tabla usuario
+    const { data: usuarioActualizado, error: errorUsuario } = await supabase
+      .from('usuario')
+      .update({
+        nombre_completo: nombre,
+        correo,
+        teléfono: telefono
+      })
+      .eq('id_usuario', id_usuario)
+      .select()
+      .single();
+
+    if (errorUsuario) throw errorUsuario;
+
+    // Actualizamos tabla paciente
+    const { data: pacienteActualizado, error: errorPaciente } = await supabase
+      .from('paciente')
+      .update({
+        altura,
+        peso: parseFloat(peso),
+        embarazo: embarazo !== undefined ? embarazo : undefined,
+        nombre_emergencia,
+        numero_emergencia
+      })
+      .eq('id_usuario', id_usuario)
+      .select()
+      .single(); // ⬅️ usar single() para tener un objeto y no array
+
+    if (errorPaciente) throw errorPaciente;
+
+    // Manejo de seguimiento_embarazo
+    if (embarazo === true && semanas_embarazo > 0) {
+      // Insertar nuevo seguimiento
+      const { error: errorSeguimiento } = await supabase
+        .from('seguimiento_embarazo')
+        .insert({
+          id_paciente,
+          fecha_registro: new Date().toISOString().split('T')[0],
+          semanas_embarazo,
+          fecha_terminacion: null
+        });
+      if (errorSeguimiento) throw errorSeguimiento;
+    } else if (embarazo === false && fecha_terminacion) {
+      // Obtener el seguimiento más reciente activo
+      const { data: seguimientosActivos, error: errorFetch } = await supabase
+        .from('seguimiento_embarazo')
+        .select('id_seguimiento')
+        .eq('id_paciente', id_paciente)
+        .is('fecha_terminacion', null)
+        .order('fecha_registro', { ascending: false })
+        .limit(1);
+
+      if (errorFetch) throw errorFetch;
+
+      if (seguimientosActivos && seguimientosActivos.length > 0) {
+        const id_seguimiento = seguimientosActivos[0].id_seguimiento;
+        const { error: errorUpdate } = await supabase
+          .from('seguimiento_embarazo')
+          .update({ fecha_terminacion })
+          .eq('id_seguimiento', id_seguimiento);
+
+        if (errorUpdate) throw errorUpdate;
+      }
+    }
+
+    res.json({
+      usuario: usuarioActualizado,
+      paciente: pacienteActualizado
+    });
+
+  } catch (error) {
+    console.error("Error al actualizar paciente:", error);
+    res.status(500).json({ error: 'Error al actualizar paciente', details: error });
+  }
+};
+
+
+module.exports={perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente,actualizarPaciente};
