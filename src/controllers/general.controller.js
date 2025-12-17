@@ -78,44 +78,16 @@ const verEspecialidades = async (req, res) => {
 const verAuditoria = async (req, res) => {
   try {
     const { data: auditoria, error: auditoriaError } = await supabase
-      .from('auditoria_endpoints')
-      .select('*');
+        .from('auditoria_endpoints')
+        .select(`
+            *,
+            usuario(nombre_completo)
+        `);
 
     if (auditoriaError) throw auditoriaError;
 
-    const userIds = [
-      ...new Set(
-        auditoria
-          .map(row => row.id_usuario)
-          .filter(id => id !== null)
-      )
-    ];
-
-    let usuariosMap = {};
-
-    if (userIds.length > 0) {
-      const { data: usuarios, error: usuariosError } = await supabase
-        .from('usuario')
-        .select('id_usuario, nombre_completo')
-        .in('id_usuario', userIds);
-
-      if (usuariosError) throw usuariosError;
-
-      usuariosMap = usuarios.reduce((acc, u) => {
-        acc[u.id_usuario] = u.nombre_completo;
-        return acc;
-      }, {});
-    }
-
-    const result = auditoria.map(row => ({
-      ...row,
-      id_usuario: row.id_usuario ?? null,
-      nombre_completo: row.id_usuario
-        ? usuariosMap[row.id_usuario] ?? null
-        : null
-    }));
-
-    return res.status(200).json(result);
+    // Devuelve los registros tal cual están en la tabla
+    return res.status(200).json(auditoria);
 
   } catch (error) {
     console.error('Error obteniendo auditoría:', error);

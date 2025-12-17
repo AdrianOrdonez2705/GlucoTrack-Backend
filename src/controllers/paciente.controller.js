@@ -338,5 +338,56 @@ const actualizarPaciente = async (req, res) => {
   }
 };
 
+const obtenerSemanasEmbarazoActual = async (req, res) => {
+  const id_paciente = req.params.id_paciente;
 
-module.exports={perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente,actualizarPaciente};
+  try {
+    // Obtener si el paciente está embarazado
+    const { data: dataPaciente, error: errorPaciente } = await supabase
+      .from("paciente")
+      .select("embarazo")
+      .eq("id_paciente", id_paciente)
+      .single();
+
+    if (errorPaciente) throw errorPaciente;
+
+    const embarazo = dataPaciente.embarazo;
+
+    if (embarazo === true) {
+      // Obtener el último registro activo de embarazo
+      const { data: dataEmbarazo, error: errorEmbarazo } = await supabase
+        .from("seguimiento_embarazo")
+        .select("fecha_registro, semanas_embarazo")
+        .eq("id_paciente", id_paciente)
+        .is("fecha_terminacion", null)
+        .order("fecha_registro", { ascending: false })
+        .limit(1);
+
+      if (errorEmbarazo) throw errorEmbarazo;
+
+      if (!dataEmbarazo || dataEmbarazo.length === 0) {
+        // No hay registros activos
+        return res.json({ semanas_actuales: null });
+      }
+
+      const registro = dataEmbarazo[0];
+      const fechaRegistro = new Date(registro.fecha_registro);
+      const semanasIniciales = registro.semanas_embarazo;
+
+      // Calcular semanas actuales sumando los días transcurridos desde la fecha del registro
+      const hoy = new Date();
+      const diferenciaDias = Math.floor((hoy - fechaRegistro) / (1000 * 60 * 60 * 24));
+      const semanasActuales = semanasIniciales + Math.floor(diferenciaDias / 7);
+
+      return res.json({ semanas_actuales: semanasActuales });
+    } else {
+      // Paciente no embarazado
+      return res.json({ semanas_actuales: null });
+    }
+  } catch (error) {
+    console.error("Error al obtener semanas de embarazo:", error);
+    return res.status(500).json({ error: "Error al obtener semanas de embarazo" });
+  }
+};
+
+module.exports={perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente,actualizarPaciente,obtenerSemanasEmbarazoActual};

@@ -6,14 +6,14 @@ const {pacientesActivos, pacientesSolicitantes,activarPaciente,medicosActivos,me
 const auditoriaAdmin=require("../middlewares/auditoria.admin")
 router.post('/agregar',auditoriaAdmin,agregarAdmin);
 
-router.get('/pacientes/activos',auditoriaAdmin,pacientesActivos);
-router.get('/pacientes/solicitantes',auditoriaAdmin,pacientesSolicitantes)
+router.get('/pacientes/activos',pacientesActivos);
+router.get('/pacientes/solicitantes',pacientesSolicitantes)
 router.get('/obtenerAdmins/:idAdmin',auditoriaAdmin,obtenerAdmins);
 router.put('/paciente/activar/:idPaciente',auditoriaAdmin,activarPaciente)
 
 
-router.get('/medicos/activos',auditoriaAdmin, medicosActivos);
-router.get('/medicos/solicitantes',auditoriaAdmin,medicosSolicitantes);
+router.get('/medicos/activos', medicosActivos);
+router.get('/medicos/solicitantes',medicosSolicitantes);
 router.get('/perfilAdmin/:idUsuario',auditoriaAdmin,perfilAdmin)
 router.put('/medico/activar/:idMedico', auditoriaAdmin,activarMedico);
 
