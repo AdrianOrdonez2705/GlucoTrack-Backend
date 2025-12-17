@@ -55,7 +55,7 @@ const registrarAlerta = async (req, res) => {
     // Obtener registro de glucosa
     const { data: registro } = await supabase
       .from("registro_glucosa")
-      .select("id_paciente, nivel_glucosa, fecha, hora")
+      .select("id_paciente, nivel_glucosa, fecha, hora,observaciones")
       .eq("id_registro", id_registro)
       .single();
 
@@ -107,7 +107,8 @@ const registrarAlerta = async (req, res) => {
       valor: registro.nivel_glucosa,
       fecha: registro.fecha,
       hora: registro.hora,
-      nombreMedico:usuarioMedico.nombre_completo
+      nombreMedico:usuarioMedico.nombre_completo,
+      observaciones:registro.observaciones
     };
 
     const template =

@@ -292,15 +292,11 @@ const registrarGlucosaMedico = async (req, res) => {
 
 const actualizarMedico = async (req, res) => {
   const { id_medico } = req.params;
-
-  const {
-    telefono,
-    correo,
-    departamento,
-    carnet_profesional
-  } = req.body;
+  const { telefono, correo, departamento } = req.body;
+  const carnetFile = req.file;
 
   try {
+    // 1️⃣ Obtener id_usuario del médico
     const { data: medico, error: medicoFetchError } = await supabase
       .from('medico')
       .select('id_usuario')
@@ -313,34 +309,64 @@ const actualizarMedico = async (req, res) => {
 
     const { id_usuario } = medico;
 
+    // 2️⃣ Preparar actualizaciones
     const usuarioUpdates = {};
     if (telefono !== undefined) usuarioUpdates["teléfono"] = telefono;
     if (correo !== undefined) usuarioUpdates.correo = correo;
 
     const medicoUpdates = {};
     if (departamento !== undefined) medicoUpdates.departamento = departamento;
-    if (carnet_profesional !== undefined) medicoUpdates.carnet_profesional = carnet_profesional;
 
+    // 3️⃣ Subir nuevo carnet si hay archivo
+    if (carnetFile) {
+      const fileName = `carnet-${id_usuario}-${Date.now()}.${carnetFile.originalname.split('.').pop()}`;
+      
+      // Subir el archivo al bucket
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('Carnets_IMG')
+        .upload(
+          fileName,
+          carnetFile.buffer,
+          {
+            contentType: carnetFile.mimetype,
+            upsert: true
+          }
+        );
+
+      if (uploadError) throw uploadError;
+
+      // Obtener URL pública - CORRECCIÓN AQUÍ
+      const { data: urlData } = supabase
+        .storage
+        .from('Carnets_IMG')
+        .getPublicUrl(uploadData.path);
+
+      // Asignar la URL pública al campo carnet_profesional
+      medicoUpdates.carnet_profesional = urlData.publicUrl;
+    }
+
+    // 4️⃣ Actualizar tabla usuario
     if (Object.keys(usuarioUpdates).length > 0) {
       const { error } = await supabase
         .from('usuario')
         .update(usuarioUpdates)
         .eq('id_usuario', id_usuario);
-
       if (error) throw error;
     }
 
+    // 5️⃣ Actualizar tabla medico (INCLUYENDO carnet_profesional)
     if (Object.keys(medicoUpdates).length > 0) {
       const { error } = await supabase
         .from('medico')
         .update(medicoUpdates)
         .eq('id_medico', id_medico);
-
       if (error) throw error;
     }
 
     return res.status(200).json({
-      message: 'Datos actualizados correctamente'
+      message: 'Datos actualizados correctamente',
+      carnet_url: medicoUpdates.carnet_profesional || 'No se actualizó el carnet'
     });
 
   } catch (error) {

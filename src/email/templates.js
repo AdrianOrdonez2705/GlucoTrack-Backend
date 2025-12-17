@@ -1,4 +1,4 @@
-const getHipoTemplate = ({ nombrePaciente, valor, fecha, hora ,nombreMedico}) => ({
+const getHipoTemplate = ({ nombrePaciente, valor, fecha, hora ,nombreMedico,observaciones}) => ({
   subject: `Alerta de Hipoglucemia - ${nombrePaciente}`,
   html: `
     <p>Estimado/a Doctor/a ${nombreMedico},</p>
@@ -9,15 +9,15 @@ const getHipoTemplate = ({ nombrePaciente, valor, fecha, hora ,nombreMedico}) =>
       <li><strong>Valor:</strong> ${valor} mg/dL</li>
       <li><strong>Fecha:</strong> ${fecha}</li>
       <li><strong>Hora:</strong> ${hora}</li>
+      <li><strong>Observaciones durante la muestra:</strong> ${observaciones}</li>
     </ul>
 
-    <p>El paciente se encontraba acompañado por el médico de turno.</p>
 
     <p>Atentamente,<br>GlucoTracker</p>
   `
 });
 
-const getHiperTemplate = ({ nombrePaciente, valor, fecha, hora }) => ({
+const getHiperTemplate = ({ nombrePaciente, valor, fecha, hora,observaciones }) => ({
   subject: `Alerta de Hiperglucemia - ${nombrePaciente}`,
   html: `
     <p>Estimado/a Doctor/a,</p>
@@ -28,9 +28,10 @@ const getHiperTemplate = ({ nombrePaciente, valor, fecha, hora }) => ({
       <li><strong>Valor:</strong> ${valor} mg/dL</li>
       <li><strong>Fecha:</strong> ${fecha}</li>
       <li><strong>Hora:</strong> ${hora}</li>
+      <li><strong>Observaciones durante la muestra:</strong> ${observaciones}</li>
+
     </ul>
 
-    <p>El paciente se encontraba acompañado por el médico de turno.</p>
 
     <p>Atentamente,<br>GlucoTracker</p>
   `
