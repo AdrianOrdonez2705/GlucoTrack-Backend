@@ -23,7 +23,7 @@ pipeline {
         stage('Desplegar API') {
             steps {
                 echo 'Levantando el servidor con PM2...'
-                bat 'pm2 restart GlucoTrack-API || pm2 start server.js --name "GlucoTrack-API"'
+                bat 'pm2 restart GlucoTrack-API --update-env || pm2 start server.js --name "GlucoTrack-API"'
             }
         }
     }
