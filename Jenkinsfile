@@ -23,13 +23,7 @@ pipeline {
         stage('Desplegar API') {
             steps {
                 echo 'Levantando el servidor con PM2...'
-                bat '''
-                set PM2_HOME=C:\\Users\\diego\\.pm2 && ^
-                set PORT=3000 && ^
-                pm2 delete GlucoTrack-API && ^
-                pm2 start server.js --name GlucoTrack-API && ^
-                pm2 save
-                '''
+                bat 'set PM2_HOME=C:\\Users\\diego\\.pm2 && set PORT=3000 && pm2 restart GlucoTrack-API || pm2 start server.js --name GlucoTrack-API && pm2 save'
             }
         }
     }
