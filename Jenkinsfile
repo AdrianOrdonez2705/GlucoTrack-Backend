@@ -20,10 +20,10 @@ pipeline {
             }
         }
 
-        stage('Desplegar API') {
+       stage('Desplegar API') {
             steps {
                 echo 'Levantando el servidor con PM2...'
-                bat 'pm2 restart GlucoTrack-API --update-env || pm2 start server.js --name "GlucoTrack-API"'
+                bat 'set PORT=3000 && pm2 restart GlucoTrack-API --update-env || set PORT=3000 && pm2 start server.js --name "GlucoTrack-API"'
             }
         }
     }
