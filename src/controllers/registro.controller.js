@@ -2,18 +2,107 @@ const supabase = require('../../database'); // tu cliente Supabase
 
 
 const datosParaGlucosa = async (req, res) => {
-  const idUsuario = parseInt(req.params.idUsuario);
-
   try {
-    const { data, error } = await supabase
-      .rpc('obtener_info_paciente_json', { id_paciente_input: idUsuario });
+    // 1. Validar parámetro (Ojo: Asegúrate de que el frontend envíe el ID del paciente)
+    const idPaciente = parseInt(req.params.idUsuario); // O req.params.idPaciente según tu ruta
+    if (isNaN(idPaciente)) {
+      return res.status(400).json({ error: 'El ID del paciente debe ser un número válido' });
+    }
 
-    if (error) throw error;
+    // 2. Consulta a Supabase
+    const { data, error, status } = await supabase
+      .from('paciente')
+      .select(`
+        id_paciente,
+        embarazo,
+        id_medico,
+        usuario!inner (
+          fecha_nac
+        ),
+        paciente_enfermedad (
+          enfermedades_base (
+            nombre_enfermedad
+          )
+        )
+      `)
+      .eq('id_paciente', idPaciente)
+      .maybeSingle();
 
-    res.json(data); // ✅ data ya es objeto JSON
+    // 3. MANEJO DE ERRORES DE SUPABASE
+    if (error) {
+      console.error({
+        fecha: new Date().toISOString(),
+        metodo: req.method,
+        ip: req.ip,
+        resultado: 'FALLIDO',
+        motivo: error.message,
+        codigo_supabase: error.code
+      });
+      return res.status(status || 500).json({ error: 'Error al consultar los datos del paciente', code: 'DB_QUERY_ERROR' });
+    }
+
+    // 4. MANEJO DE REGISTRO NO ENCONTRADO (404)
+    if (!data) {
+      console.log({
+        fecha: new Date().toISOString(),
+        resultado: 'NO ENCONTRADO',
+        mensaje: `No se encontró un paciente con el id: ${idPaciente}`
+      });
+      return res.status(404).json({ message: 'No se encontraron datos para este paciente' });
+    }
+
+    // --- Función matemática para calcular la edad en JS (Equivalente a date_part(age())) ---
+    const calcularEdad = (fechaNacimiento) => {
+      if (!fechaNacimiento) return null;
+      const hoy = new Date();
+      const fechaNac = new Date(fechaNacimiento);
+      let edad = hoy.getFullYear() - fechaNac.getFullYear();
+      const mes = hoy.getMonth() - fechaNac.getMonth();
+      
+      // Si aún no ha pasado su mes de cumpleaños, o si es el mes pero no ha llegado el día, restamos 1 año
+      if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+        edad--;
+      }
+      return edad;
+    };
+
+    // 5. MAPEO Y CONSTRUCCIÓN DEL OBJETO FINAL
+    
+    // Extracción de las enfermedades (tu SQL devolvía un array de strings)
+    const enfermedadesList = data.paciente_enfermedad 
+      ? data.paciente_enfermedad.map(pe => pe.enfermedades_base?.nombre_enfermedad).filter(Boolean)
+      : [];
+
+    const datosGlucosa = {
+      edad: calcularEdad(data.usuario?.fecha_nac),
+      embarazo: data.embarazo || false,
+      id_medico: data.id_medico || null,
+      id_paciente: data.id_paciente,
+      enfermedades: enfermedadesList
+    };
+
+    // 6. RESPUESTA EXITOSA
+    console.log({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'EXITOSO',
+      paciente_id: datosGlucosa.id_paciente
+    });
+
+    return res.status(200).json(datosGlucosa);
+
   } catch (err) {
-    console.error('Error al obtener datos paciente:', err);
-    res.status(500).json({ error: 'Error al obtener datos paciente' });
+    // 7. MANEJO DE ERRORES CRÍTICOS
+    console.error({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'CRÍTICO',
+      motivo: err.message,
+      stack: err.stack
+    });
+    return res.status(500).json({ error: 'Error interno del servidor', code: 'INTERNAL_SERVER_ERROR' });
   }
 };
  
