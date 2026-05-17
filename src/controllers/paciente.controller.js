@@ -140,39 +140,305 @@ const registrarPaciente = async (req, res) => {
   }
 };
 
-const perfilPaciente=async (req, res) => {
-  const idPaciente = parseInt(req.params.idPaciente);
-
+const perfilPaciente = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .rpc('obtener_paciente_por_id', { id_paciente_input: idPaciente });
+    // 1. Validar el parámetro
+    const idPaciente = parseInt(req.params.idPaciente);
+    if (isNaN(idPaciente)) {
+      return res.status(400).json({ error: 'El ID del paciente debe ser un número válido' });
+    }
 
-    if (error) throw error;
+    // 2. Consulta a Supabase
+    const { data, error, status } = await supabase
+      .from('paciente')
+      .select(`
+        id_paciente,
+        genero,
+        altura,
+        peso,
+        embarazo,
+        nombre_emergencia,
+        numero_emergencia,
+        foto_perfil,
+        usuario!inner (
+          id_usuario,
+          nombre_completo,
+          fecha_nac,
+          teléfono,
+          correo,
+          fecha_registro
+        ),
+        nivel_actividad_fisica (
+          descripcion
+        ),
+        medico (
+          usuario (
+            nombre_completo
+          )
+        ),
+        administrador (
+          usuario (
+            nombre_completo
+          )
+        ),
+        paciente_enfermedad (
+          enfermedades_base (
+            nombre_enfermedad
+          )
+        ),
+        tratamiento_enfermedad (
+          dosis,
+          tratamientos (
+            nombre_tratamiento,
+            descripcion
+          )
+        ),
+        seguimiento_embarazo (
+          semanas_embarazo,
+          fecha_registro,
+          fecha_terminacion
+        )
+      `)
+      .eq('id_paciente', idPaciente)
+      .maybeSingle();
 
-    res.json(data);
+    // 3. MANEJO DE ERRORES DE SUPABASE
+    if (error) {
+      console.error({
+        fecha: new Date().toISOString(),
+        metodo: req.method,
+        ip: req.ip,
+        resultado: 'FALLIDO',
+        motivo: error.message,
+        codigo_supabase: error.code
+      });
+      return res.status(status || 500).json({ error: 'Error al consultar el perfil del paciente', code: 'DB_QUERY_ERROR' });
+    }
+
+    // 4. MANEJO DE REGISTRO NO ENCONTRADO (404)
+    if (!data) {
+      return res.status(404).json({ message: 'No se encontró el paciente solicitado' });
+    }
+
+    // --- Función auxiliar para formatear fechas ---
+    const formatearFecha = (fechaString) => {
+      if (!fechaString) return null;
+      const partes = fechaString.split('T')[0].split('-'); 
+      if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+      return fechaString;
+    };
+
+    // 5. PROCESAMIENTO DE DATOS COMPLEJOS (Lógica de SQL -> JS)
+    
+    // a. Mapeo de Afecciones (En tu SQL devolvías solo un array de strings)
+    const afeccionesList = data.paciente_enfermedad 
+      ? data.paciente_enfermedad.map(pe => pe.enfermedades_base?.nombre_enfermedad)
+      : [];
+
+    // b. Mapeo de Tratamientos
+    const tratamientosList = data.tratamiento_enfermedad
+      ? data.tratamiento_enfermedad.map(te => ({
+          titulo: te.tratamientos?.nombre_tratamiento || '',
+          descripcion: te.tratamientos?.descripcion || '',
+          dosis: te.dosis ? String(te.dosis) : null
+        }))
+      : [];
+
+    // c. Lógica condicional de Embarazo (Replicando tu ORDER BY CASE)
+    let semanasEmbarazoActual = null;
+    let fechaRegistroEmbarazo = null;
+
+    if (data.embarazo && data.seguimiento_embarazo && data.seguimiento_embarazo.length > 0) {
+      // Ordenamos en JS: Primero los que no han terminado (terminacion === null), 
+      // y si hay empate, el de la fecha de registro más reciente.
+      const embarazosOrdenados = [...data.seguimiento_embarazo].sort((a, b) => {
+        const aActivo = a.fecha_terminacion === null ? 0 : 1;
+        const bActivo = b.fecha_terminacion === null ? 0 : 1;
+        
+        if (aActivo !== bActivo) return aActivo - bActivo; // Prioriza los activos (0)
+        
+        return new Date(b.fecha_registro) - new Date(a.fecha_registro); // Fecha DESC
+      });
+
+      const embarazoPrincipal = embarazosOrdenados[0];
+      semanasEmbarazoActual = embarazoPrincipal.semanas_embarazo;
+      fechaRegistroEmbarazo = embarazoPrincipal.fecha_registro;
+    }
+
+    // 6. ESTRUCTURACIÓN FINAL DEL OBJETO
+    const pacienteFormateado = {
+      nombre: data.usuario?.nombre_completo || 'Sin nombre',
+      id: data.usuario?.id_usuario ? String(data.usuario.id_usuario) : null,
+      fechaNac: formatearFecha(data.usuario?.fecha_nac),
+      genero: data.genero || null,
+      altura: data.altura || null,
+      peso: data.peso || null,
+      telefono: data.usuario?.teléfono || null,
+      correo: data.usuario?.correo || null,
+      
+      // Datos de emergencia y perfil
+      nombre_emergencia: data.nombre_emergencia || null,
+      numero_emergencia: data.numero_emergencia || null,
+      foto_perfil: data.foto_perfil || null,
+      
+      // Datos médicos y admin
+      nombre_medico: data.medico?.usuario?.nombre_completo || null,
+      fecha_registro: data.usuario?.fecha_registro || null,
+      admitidoPor: data.administrador?.usuario?.nombre_completo || null,
+      
+      // Actividad Física (Objeto anidado como en tu SQL)
+      actividadFisica: {
+        nivel: data.nivel_actividad_fisica?.descripcion || null,
+        descripcion: data.nivel_actividad_fisica?.descripcion || null
+      },
+      
+      // Datos anidados y calculados
+      afecciones: afeccionesList,
+      tratamientos: tratamientosList,
+      embarazo: data.embarazo || false,
+      semanas_embarazo: semanasEmbarazoActual,
+      registro_embarazo: fechaRegistroEmbarazo
+    };
+
+    // 7. RESPUESTA EXITOSA
+    console.log({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'EXITOSO',
+      paciente_id: idPaciente
+    });
+
+    return res.status(200).json(pacienteFormateado);
+
   } catch (err) {
-    console.error('Error al obtener paciente:', err);
-    res.status(500).json({ error: 'Error al obtener paciente' });
+    // 8. MANEJO DE ERRORES CRÍTICOS
+    console.error({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'CRÍTICO',
+      motivo: err.message,
+      stack: err.stack
+    });
+    return res.status(500).json({ error: 'Error interno del servidor', code: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
 
-const registrosPaciente= async (req, res) => {
+const registrosPaciente = async (req, res) => {
   try {
+    // 1. Validar parámetro
     const idPaciente = parseInt(req.params.idPaciente);
+    if (isNaN(idPaciente)) {
+      return res.status(400).json({ error: 'El ID del paciente debe ser un número válido' });
+    }
 
-    const { data, error } = await supabase.rpc('obtener_registros_por_paciente', {
-      id_paciente_input: idPaciente
+    // 2. Consulta Relacional en Supabase con Ordenamiento Múltiple
+    const { data, error, status } = await supabase
+      .from('registro_glucosa')
+      .select(`
+        id_registro,
+        fecha,
+        hora,
+        nivel_glucosa,
+        observaciones,
+        momento_dia (
+          momento
+        ),
+        medico (
+          usuario (
+            nombre_completo
+          )
+        ),
+        alertas (
+          id_alerta,
+          tipo_alerta (
+            tipo
+          ),
+          retroalimentacion (
+            mensaje
+          )
+        )
+      `)
+      .eq('id_paciente', idPaciente)
+      .order('fecha', { ascending: false }) // 👈 ORDER BY fecha DESC
+      .order('hora', { ascending: false }); // 👈 ORDER BY hora DESC
+
+    // 3. MANEJO DE ERRORES DE SUPABASE
+    if (error) {
+      console.error({
+        fecha: new Date().toISOString(),
+        metodo: req.method,
+        ip: req.ip,
+        resultado: 'FALLIDO',
+        motivo: error.message,
+        codigo_supabase: error.code
+      });
+      return res.status(status || 500).json({ error: 'Error al consultar los registros del paciente', code: 'DB_QUERY_ERROR' });
+    }
+
+    // 4. MANEJO DE LISTAS VACÍAS
+    if (!data || data.length === 0) {
+      console.log({
+        fecha: new Date().toISOString(),
+        metodo: req.method,
+        resultado: 'EXITOSO',
+        mensaje: 'No hay registros de glucosa para este paciente.'
+      });
+      return res.status(200).json([]); 
+    }
+
+    // --- Función auxiliar para la hora ---
+    const formatearHora = (horaString) => {
+      if (!horaString) return null;
+      return horaString.substring(0, 5); // Ej. "08:30:00" -> "08:30"
+    };
+
+    // 5. MAPEO Y APLANAMIENTO DE DATOS
+    const registrosFormateados = data.map(r => {
+      // Manejo defensivo por si Supabase devuelve arreglos en relaciones 1:N
+      const alerta = Array.isArray(r.alertas) ? r.alertas[0] : r.alertas;
+      const tipoAlerta = alerta ? (Array.isArray(alerta.tipo_alerta) ? alerta.tipo_alerta[0] : alerta.tipo_alerta) : null;
+      const retro = alerta ? (Array.isArray(alerta.retroalimentacion) ? alerta.retroalimentacion[0] : alerta.retroalimentacion) : null;
+
+      return {
+        id: r.id_registro,
+        fecha: r.fecha, 
+        hora: formatearHora(r.hora),
+        nivelGlucosa: r.nivel_glucosa ? Number(r.nivel_glucosa) : null,
+        momentoDia: r.momento_dia?.momento || null,
+        quienTomoMuestra: r.medico?.usuario?.nombre_completo || null,
+        observaciones: r.observaciones || null,
+        idAlerta: alerta?.id_alerta || null,
+        tipo_alerta: tipoAlerta?.tipo || null,
+        respuesta: retro?.mensaje || null
+      };
     });
 
-    if (error) {
-      console.error('Error ejecutando función:', error);
-      return res.status(500).json({ error: error.message });
-    }
-    return res.status(200).json(data);
+    // 6. RESPUESTA EXITOSA
+    console.log({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'EXITOSO',
+      paciente_id: idPaciente,
+      registros_obtenidos: registrosFormateados.length
+    });
+
+    return res.status(200).json(registrosFormateados);
+
   } catch (err) {
-    console.error('Error interno:', err);
-    return res.status(500).json({ error: 'Error del servidor' });
+    // 7. MANEJO DE ERRORES CRÍTICOS
+    console.error({
+      fecha: new Date().toISOString(),
+      metodo: req.method,
+      ip: req.ip,
+      resultado: 'CRÍTICO',
+      motivo: err.message,
+      stack: err.stack
+    });
+    return res.status(500).json({ error: 'Error interno del servidor', code: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -389,5 +655,8 @@ const obtenerSemanasEmbarazoActual = async (req, res) => {
     return res.status(500).json({ error: "Error al obtener semanas de embarazo" });
   }
 };
+
+
+
 
 module.exports={perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente,actualizarPaciente,obtenerSemanasEmbarazoActual};

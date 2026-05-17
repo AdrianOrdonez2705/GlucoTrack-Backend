@@ -283,6 +283,42 @@ app.post('/api/verify-otp',  auditoriaEndpoint(),async (req, res) => {
 });
 
 
+app.put('/usuario/:id_usuario/password', async (req, res) => {
+  const { id_usuario } = req.params;
+  const { contrasena } = req.body;
+
+  if (!contrasena || contrasena.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  try {
+    // Hashear la nueva contraseña
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+
+    // Actualizar en Supabase
+    const { data, error } = await supabase
+      .from('usuario')
+      .update({ contrasena: hashedPassword })
+      .eq('id_usuario', id_usuario)
+      .select('id_usuario, nombre_completo, correo');
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    res.json({ message: 'Contraseña actualizada correctamente.', usuario: data[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+
 
 const medicoRoutes = require('./src/routes/medico.routes');
 app.use('/api/medicos', medicoRoutes);
