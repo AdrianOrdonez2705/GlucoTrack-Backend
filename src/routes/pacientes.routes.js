@@ -1,27 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const multer=require('multer');
+const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }  });
 
-const {perfilPaciente,registrosPaciente,registrarGlucosa,registrarPaciente,actualizarPaciente,obtenerSemanasEmbarazoActual}=require('../controllers/paciente.controller');
-const auditoriaPaciente=require("../middlewares/auditoria.paciente")
-router.get('/perfil/:idPaciente',auditoriaPaciente,perfilPaciente);
-router.get('/registros/:idPaciente',auditoriaPaciente,registrosPaciente);
+const auditoriaPaciente = require("../middlewares/auditoria.paciente");
 
-router.post('/registrarGlucosa',auditoriaPaciente,registrarGlucosa);
+const supabase = require('../../database');
+const PacienteRepository = require('../repositories/paciente.repository');
+const PacienteService = require('../services/paciente.service');
+const PacienteController = require('../controllers/paciente.controller');
+
+const repo = new PacienteRepository(supabase);
+const service = new PacienteService(repo);
+const controller = new PacienteController(service);
+
+router.get('/perfil/:idPaciente', auditoriaPaciente, controller.perfilPaciente);
+router.get('/registros/:idPaciente', auditoriaPaciente, controller.registrosPaciente);
+
+router.post('/registrarGlucosa', auditoriaPaciente, controller.registrarGlucosa);
 router.post('/registrarPaciente', upload.fields([
   { name: "foto_perfil", maxCount: 1 }
-]),registrarPaciente);
+]), controller.registrarPaciente);
 
+router.put('/actualizarPaciente/:id_usuario', auditoriaPaciente, controller.actualizarPaciente);
 
-router.put('/actualizarPaciente/:id_usuario',auditoriaPaciente,actualizarPaciente)
+router.get('/obtenerDatosEmbarazo/:id_paciente', controller.obtenerSemanasEmbarazoActual);
 
-router.get('/obtenerDatosEmbarazo/:id_paciente',obtenerSemanasEmbarazoActual);
 /*
 router.get('/activos',pacientesActivos);
 router.get('/solicitantes',pacientesSolicitantes)
 
 router.put('/activar/:idPaciente',activarPaciente)*/
 
-module.exports=router;
+module.exports = router;
