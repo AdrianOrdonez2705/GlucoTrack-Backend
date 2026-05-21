@@ -141,32 +141,24 @@ try{
   if (!isMatch) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
   // Generar OTPF
-  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 dígitos
-  setOTP(usuario.id_usuario, otp, 5 * 60 * 1000); // 5 minutos
-
-  // Enviar OTP por correo
-  const { subject, html } = getOtpTemplate({
-  nombreUsuario: usuario.correo, // o nombre si lo tienes
-  codigo: otp
+  console.log({
+  fecha:new Date().toISOString(),
+  endpoint: '/api/login',
+  metodo: 'POST',
+  correo,
+  id_usuario: usuario.id_usuario,
+  id_rol,
+  ip:req.ip,
+  resultado: 'EXITOSO',
+  mensaje: 'Login exitoso (sin OTP)'
 });
 
-await sendEmail(
-  usuario.correo,
-  subject,
-  html
-);
-  console.log({
-      fecha:new Date().toISOString(),
-      endpoint: '/api/login',
-      metodo: 'POST',
-      correo,
-      id_usuario: usuario.id_usuario,
-      id_rol,
-      ip:req.ip,
-      resultado: 'EXITOSO',
-      mensaje: 'OTP enviado al correo'
-    });
-  res.status(200).json({ id_usuario: usuario.id_usuario,id_rol:id_rol, message: 'OTP enviado al correo' });
+res.status(200).json({
+  id_usuario: usuario.id_usuario,
+  id_rol: id_rol,
+  rol: usuario.rol,
+  message: 'Login exitoso'
+});
 }catch (error) {
     console.log({
       fecha:new Date().toISOString(),
